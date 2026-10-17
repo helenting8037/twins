@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>猜猜誰是哥哥</title>
+<style>
+  :root { --bg:#fff8f0; --ink:#4a3b32; --soft:#6b5a4e; --accent:#f29e6d; --ok:#5bb381; --no:#e57373; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif; font-size:18px; display:flex; justify-content:center; }
+  main { width:100%; max-width:440px; padding:28px 16px 40px; text-align:center; }
+  h1 { font-size:28px; margin:6px 0 10px; }
+  p { line-height:1.75; margin:8px 0; }
+  .sub { color:var(--soft); font-size:17px; }
+  .big { font-size:60px; margin:0; }
+  .btn { display:block; width:100%; border:0; border-radius:999px; padding:16px; font-size:19px; font-weight:600; background:var(--accent); color:#fff; margin-top:20px; cursor:pointer; }
+  .btn.ghost { background:none; color:var(--soft); border:1px solid #e5d8cc; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0 8px; }
+  .pick { border:3px solid transparent; border-radius:18px; padding:0; background:#fff; overflow:hidden; cursor:pointer; box-shadow:0 2px 10px #0000000f; font:inherit; color:inherit; }
+  .pick img { display:block; width:100%; aspect-ratio:3/4; object-fit:cover; }
+  .pick span { display:block; padding:8px; font-size:18px; min-height:42px; }
+  .pick.ok { border-color:var(--ok); } .pick.no { border-color:var(--no); }
+  .fb { font-size:20px; font-weight:600; min-height:28px; }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<main>
+
+  <section id="start">
+    <p class="big">👶👶</p>
+    <h1>猜猜誰是哥哥？</h1>
+    <p>我們家這次出貨是<b>「複製＋貼上」</b>規格，<br>同卵雙胞胎，原廠沒附說明書。</p>
+    <p class="sub">連爸媽有時候都要多看兩眼才敢叫名字，<br>換你來挑戰！</p>
+    <button class="btn" onclick="go(0)">我眼力很好，開始 💪</button>
+  </section>
+
+  <section id="quiz" class="hide">
+    <p class="sub" id="step"></p>
+    <h1>哪個是<span style="color:var(--accent)">哥哥</span>？</h1>
+    <p class="sub" id="ask"></p>
+    <div class="pair">
+      <button class="pick" id="L" onclick="pick('L')"><img alt="左邊的寶寶"><span></span></button>
+      <button class="pick" id="R" onclick="pick('R')"><img alt="右邊的寶寶"><span></span></button>
+    </div>
+    <p class="fb" id="fb"></p>
+    <p class="sub" id="hint"></p>
+    <button class="btn hide" id="next" onclick="go(i + 1)">下一題 →</button>
+  </section>
+
+  <section id="end" class="hide">
+    <p class="big" id="medal"></p>
+    <p class="sub" id="score"></p>
+    <h1 id="rank"></h1>
+    <p id="comment"></p>
+    <p class="sub">🔎 破解祕笈：弟弟臉頰肉比哥哥多；<br>弟弟有兩個髮旋，哥哥只有一個髮旋</p>
+    <hr style="border:0;border-top:1px dashed #e5d8cc;margin:24px 0">
+    <p>謝謝你來分享我們的喜悅 🎉<br>雙寶滿月了，請繼續幫我們一起分辨（誤）</p>
+    <p class="sub">峻泓・予涵 敬上</p>
+    <button class="btn ghost" onclick="score = 0; go(0)">不服，再玩一次</button>
+  </section>
+
+</main>
+<script>
+  // ===== 予涵只要改這一區 =====
+  // 每題一張哥哥、一張弟弟；每次玩左右位置隨機。hint 是答完才出現的小提示，不想給就留空。
+  // 只要玩一題（A 玩法）就只留第一行。
+  const ROUNDS = [
+    { gege: 'img/1R.jpg', didi: 'img/1L.jpg', hint: '' },
+    { gege: 'img/2R-v3.jpg', didi: 'img/2L.jpg', hint: '' },
+    { gege: 'img/3R.jpg', didi: 'img/3L.jpg', hint: '' },
+  ];
+
+  const ASK = [
+    '憑直覺！想太多會覺得兩個都像',
+    '哥哥只早出來 1 分鐘，但大哥氣場已經上身（應該吧）',
+    '偷偷給個線索：仔細看臉頰肉 👀',
+    '放輕鬆，爸媽也常常要確認第二次',
+  ];
+  const RIGHT = [
+    '答對！眼力好到可以來當鑑定師 🔍',
+    '正確！雙寶表示：被認出來了 😳',
+    '漂亮！你可以來幫忙換尿布了（誤）',
+  ];
+  const WRONG = [
+    '猜錯～沒關係，他們自己照鏡子大概也分不出來',
+    '選錯了～哥哥：我才是本人好嗎 😤',
+    '錯啦～這位是弟弟，正在假扮哥哥中 🕵️',
+  ];
+  // ===== 改到這裡 =====
+
+  const $ = id => document.getElementById(id);
+  const used = new Set();  // 同一局不重複出現同一句
+  const any = arr => {
+    const left = arr.filter(x => !used.has(x));
+    const x = left.length ? left[Math.floor(Math.random() * left.length)] : arr[0];
+    used.add(x);
+    return x;
+  };
+  const placeholder = side => 'data:image/svg+xml,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400"><rect width="300" height="400" fill="#fde8d7"/><text x="150" y="190" font-size="80" text-anchor="middle">👶</text><text x="150" y="260" font-size="22" fill="#8a7768" text-anchor="middle">照片待放（${side}）</text></svg>`);
+  let i = 0, score = 0, done = false;
+
+  function show(id) {
+    for (const s of ['start', 'quiz', 'end']) $(s).classList.toggle('hide', s !== id);
+    scrollTo(0, 0);
+  }
+
+  function go(n) {
+    i = n;
+    if (n === 0) used.clear();
+    if (i >= ROUNDS.length) return finish();
+    done = false;
+    const r = ROUNDS[i];
+    r.side = Math.random() < 0.5 ? 'L' : 'R';  // 哥哥這次在哪邊
+    $('step').textContent = `第 ${i + 1} / ${ROUNDS.length} 題`;
+    $('ask').textContent = any(ASK);
+    for (const s of ['L', 'R']) {
+      const img = $(s).querySelector('img');
+      img.onerror = () => { img.onerror = null; img.src = placeholder(s === 'L' ? '左' : '右'); };
+      img.src = s === r.side ? r.gege : r.didi;
+      $(s).className = 'pick';
+      $(s).querySelector('span').textContent = '';
+    }
+    $('fb').textContent = $('hint').textContent = '';
+    $('next').classList.add('hide');
+    show('quiz');
+  }
+
+  function pick(side) {
+    if (done) return;
+    done = true;
+    const r = ROUNDS[i], right = side === r.side;
+    if (right) score++;
+    for (const s of ['L', 'R']) {
+      $(s).querySelector('span').textContent = s === r.side ? '👑 哥哥' : '🍼 弟弟';
+      if (s === side) $(s).classList.add(right ? 'ok' : 'no');
+    }
+    $('fb').textContent = any(right ? RIGHT : WRONG);
+    $('fb').style.color = right ? 'var(--ok)' : 'var(--no)';
+    $('hint').textContent = r.hint ? '🔎 ' + r.hint : '';
+    $('next').textContent = i + 1 < ROUNDS.length ? '下一題 →' : '看我的成績 →';
+    $('next').classList.remove('hide');
+  }
+
+  function finish() {
+    const n = ROUNDS.length;
+    const [medal, rank, comment] =
+      score === n ? ['🏆', '雙寶認證・特級保母', '全對！你可以直接來我們家上班了（薪水是寶寶的笑容）'] :
+      score / n >= 0.6 ? ['🥈', '合格親友・可以抱', '眼力不錯，下次見面直接叫名字，應該不會被抓包'] :
+      score > 0 ? ['🍀', '運氣型選手', '建議見面時先數髮旋再開口'] :
+      ['🪙', '全錯也是一種天分', '丟硬幣都比較準，你到底是怎麼辦到的？'];
+    $('medal').textContent = medal;
+    $('score').textContent = `答對 ${score} / ${n} 題`;
+    $('rank').textContent = rank;
+    $('comment').textContent = comment;
+    show('end');
+  }
+</script>
+</body>
+</html>
