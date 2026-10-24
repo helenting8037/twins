@@ -24,7 +24,7 @@
     -webkit-mask-image:radial-gradient(ellipse 50% 50% at center, #000 60%, transparent 100%);
     mask-image:radial-gradient(ellipse 50% 50% at center, #000 60%, transparent 100%); }
   .medal { display:block; width:130px; height:130px; margin:0 auto; }
-  .pick .tag { display:inline; width:38px; height:38px; aspect-ratio:auto; vertical-align:-11px; margin-right:4px; }
+  .pick .tag, .glabel .tag { display:inline; width:38px; height:38px; aspect-ratio:auto; vertical-align:-11px; margin-right:4px; }
   .hello { font-family:Georgia,"Times New Roman",serif; font-style:italic; color:#8e7a6c; font-size:20px; letter-spacing:.5px; margin:0 0 6px; }
   .btn { display:block; width:100%; border:0; border-radius:999px; padding:16px; font-size:19px; font-weight:600; background:var(--accent); color:var(--bg); margin-top:20px; cursor:pointer; box-shadow:0 3px 10px #7155412e; }
   .btn.ghost { background:#fffaf2b3; color:var(--soft); border:1px solid var(--line); box-shadow:none; }
@@ -34,6 +34,14 @@
   .pick span { display:block; padding:8px; font-size:18px; min-height:42px; }
   .pair.wide { grid-template-columns:1fr; }
   .pair.wide .pick img { aspect-ratio:3/2; }
+  .gphoto { position:relative; margin:18px 0 12px; border-radius:18px; overflow:hidden; box-shadow:0 3px 14px #7155411f; }
+  .gphoto img { display:block; width:100%; }
+  .glabel { position:absolute; bottom:10px; padding:2px 12px 2px 4px; border-radius:999px; background:#fffaf2e6; font-size:17px; }
+  .glabel:empty { display:none; }
+  .gl { left:10px; } .gr { right:10px; }
+  .gbtns { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .gbtn { border:3px solid transparent; border-radius:999px; padding:14px 6px; font:inherit; font-size:18px; font-weight:600; background:#fffaf2cc; color:var(--soft); box-shadow:0 3px 14px #7155411f; cursor:pointer; }
+  .gbtn.ok { border-color:var(--ok); } .gbtn.no { border-color:var(--no); }
   .pick.ok { border-color:var(--ok); } .pick.no { border-color:var(--no); }
   .fb { font-size:20px; font-weight:600; min-height:28px; }
   hr { border:0; border-top:1px dashed var(--line); margin:24px 0; }
@@ -60,6 +68,13 @@
       <button class="pick" id="L" onclick="pick('L')"><img alt="左邊的寶寶"><span></span></button>
       <button class="pick" id="R" onclick="pick('R')"><img alt="右邊的寶寶"><span></span></button>
     </div>
+    <div class="hide" id="group">
+      <div class="gphoto"><img alt="雙寶合照"><span class="glabel gl" id="gl"></span><span class="glabel gr" id="gr"></span></div>
+      <div class="gbtns">
+        <button class="gbtn" id="GL" onclick="pick('L')">👈 左邊是哥哥</button>
+        <button class="gbtn" id="GR" onclick="pick('R')">右邊是哥哥 👉</button>
+      </div>
+    </div>
     <p class="fb" id="fb"></p>
     <p class="sub" id="hint"></p>
     <button class="btn hide" id="next" onclick="go(i + 1)">下一題 →</button>
@@ -82,11 +97,13 @@
   // ===== 予涵只要改這一區 =====
   // 每題一張哥哥、一張弟弟；每次玩左右位置隨機。hint 是答完才出現的小提示，不想給就留空。
   // 橫向照片加 wide: true，會改成上下排列、不裁切。
+  // 合照題用 group（一張照片），由大家選左邊或右邊；位置固定不隨機。
   // 只要玩一題（A 玩法）就只留第一行。
   const ROUNDS = [
     { gege: 'img/1R-v4.jpg', didi: 'img/1L-v4.jpg', hint: '' },
     { gege: 'img/2R-v4.jpg', didi: 'img/2L-v4.jpg', hint: '' },
     { gege: 'img/3R-v4.jpg', didi: 'img/3L-v4.jpg', hint: '', wide: true },  // 橫向照片：上下排
+    { group: 'img/4-v4.jpg', gegeSide: 'L', hint: '' },  // 合照：gegeSide 填哥哥在照片的左（L）或右（R）
   ];
 
   const ASK = [
@@ -99,11 +116,13 @@
     '答對！眼力好到可以來當鑑定師 🔍',
     '正確！雙寶表示：被認出來了 😳',
     '漂亮！你可以來幫忙換尿布了（誤）',
+    '厲害！雙寶都想跟你擊掌了 🙌',
   ];
   const WRONG = [
     '猜錯～沒關係，他們自己照鏡子大概也分不出來',
     '選錯了～哥哥：我才是本人好嗎 😤',
     '錯啦～這位是弟弟，正在假扮哥哥中 🕵️',
+    '哎呀～被雙寶的障眼法騙了 🙈',
   ];
   // ===== 改到這裡 =====
 
@@ -131,11 +150,18 @@
     if (i >= ROUNDS.length) return finish();
     done = false;
     const r = ROUNDS[i];
-    r.side = Math.random() < 0.5 ? 'L' : 'R';  // 哥哥這次在哪邊
+    r.side = r.group ? r.gegeSide : Math.random() < 0.5 ? 'L' : 'R';  // 哥哥這次在哪邊
     document.querySelector('.pair').classList.toggle('wide', !!r.wide);
+    document.querySelector('.pair').classList.toggle('hide', !!r.group);
+    $('group').classList.toggle('hide', !r.group);
     $('step').textContent = `第 ${i + 1} / ${ROUNDS.length} 題`;
-    $('ask').textContent = any(ASK);
-    for (const s of ['L', 'R']) {
+    $('ask').textContent = r.group ? '壓軸題！合照裡哪邊是哥哥？' : any(ASK);
+    if (r.group) {
+      $('group').querySelector('img').src = r.group;
+      $('gl').innerHTML = $('gr').innerHTML = '';
+      $('GL').className = $('GR').className = 'gbtn';
+    }
+    else for (const s of ['L', 'R']) {
       const img = $(s).querySelector('img');
       img.onerror = () => { img.onerror = null; img.src = placeholder(s === 'L' ? '左' : '右'); };
       img.src = s === r.side ? r.gege : r.didi;
@@ -153,10 +179,12 @@
     const r = ROUNDS[i], right = side === r.side;
     if (right) score++;
     for (const s of ['L', 'R']) {
-      $(s).querySelector('span').innerHTML = s === r.side
+      const label = s === r.side
         ? '<img class="tag" src="img/icons/crown.png" alt="">哥哥'
         : '<img class="tag" src="img/icons/bottle.png" alt="">弟弟';
-      if (s === side) $(s).classList.add(right ? 'ok' : 'no');
+      if (r.group) $(s === 'L' ? 'gl' : 'gr').innerHTML = label;  // 合照：標籤貼在照片左下／右下
+      else $(s).querySelector('span').innerHTML = label;
+      if (s === side) $(r.group ? 'G' + s : s).classList.add(right ? 'ok' : 'no');
     }
     $('fb').textContent = any(right ? RIGHT : WRONG);
     $('fb').style.color = right ? 'var(--ok)' : 'var(--no)';
