@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>猜猜誰是哥哥</title>
 <style>
@@ -10,12 +10,19 @@
   :root { --bg:#fbf4e6; --ink:#5e4636; --soft:#715541; --accent:#9a7058; --ok:#6f9a76; --no:#c0817a; --line:#7155413d; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink); font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif; font-size:18px; display:flex; justify-content:center; }
-  body::before { content:""; position:fixed; inset:0; pointer-events:none; background:url(img/bg.jpg) center / cover no-repeat; }
-  main { position:relative; width:100%; max-width:440px; padding:28px 16px 40px; text-align:center; }
+  html { background:var(--bg); }
+  /* iPhone Safari 會在狀態列和網址列塗上純色（=html 底色），所以背景上下緣淡出成同一個米色，接縫就看不出來 */
+  body::before { content:""; position:fixed; left:0; right:0; top:0; height:100vh; height:100lvh; pointer-events:none;
+    background:linear-gradient(var(--bg), #fbf4e600 120px, #fbf4e600 calc(100% - 160px), var(--bg)), url(img/bg.jpg) center / cover no-repeat; }
+  main { position:relative; width:100%; max-width:440px; padding:calc(28px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)); text-align:center; }
   h1 { font-size:28px; margin:6px 0 10px; color:var(--soft); }
   p { line-height:1.75; margin:8px 0; }
   .sub { color:var(--soft); font-size:17px; }
-  .hero { display:block; width:200px; height:200px; margin:0 auto; }
+  .cover { margin:6px 0 14px; }
+  /* 寫生照邊緣以橢圓淡出融進水彩背景 */
+  .cover img { display:block; width:100%;
+    -webkit-mask-image:radial-gradient(ellipse 50% 50% at center, #000 60%, transparent 100%);
+    mask-image:radial-gradient(ellipse 50% 50% at center, #000 60%, transparent 100%); }
   .medal { display:block; width:130px; height:130px; margin:0 auto; }
   .pick .tag { display:inline; width:38px; height:38px; aspect-ratio:auto; vertical-align:-11px; margin-right:4px; }
   .hello { font-family:Georgia,"Times New Roman",serif; font-style:italic; color:#8e7a6c; font-size:20px; letter-spacing:.5px; margin:0 0 6px; }
@@ -25,6 +32,8 @@
   .pick { border:3px solid transparent; border-radius:18px; padding:0; background:#fffaf2cc; overflow:hidden; cursor:pointer; box-shadow:0 3px 14px #7155411f; font:inherit; color:inherit; }
   .pick img { display:block; width:100%; aspect-ratio:3/4; object-fit:cover; }
   .pick span { display:block; padding:8px; font-size:18px; min-height:42px; }
+  .pair.wide { grid-template-columns:1fr; }
+  .pair.wide .pick img { aspect-ratio:3/2; }
   .pick.ok { border-color:var(--ok); } .pick.no { border-color:var(--no); }
   .fb { font-size:20px; font-weight:600; min-height:28px; }
   hr { border:0; border-top:1px dashed var(--line); margin:24px 0; }
@@ -36,7 +45,7 @@
 
   <section id="start">
     <p class="hello">Welcome to the world</p>
-    <img class="hero" src="img/icons/twins.png" alt="雙胞胎寶寶">
+    <figure class="cover"><img src="img/portrait.jpg" alt="Dylan 和 Orion 的新生兒寫生照"></figure>
     <h1>猜猜誰是哥哥？</h1>
     <p>我們家這次出貨是<b>「複製＋貼上」</b>規格，<br>同卵雙胞胎，原廠沒附說明書。</p>
     <p class="sub">連爸媽有時候都要多看兩眼才敢叫名字，<br>換你來挑戰！</p>
@@ -72,11 +81,12 @@
 <script>
   // ===== 予涵只要改這一區 =====
   // 每題一張哥哥、一張弟弟；每次玩左右位置隨機。hint 是答完才出現的小提示，不想給就留空。
+  // 橫向照片加 wide: true，會改成上下排列、不裁切。
   // 只要玩一題（A 玩法）就只留第一行。
   const ROUNDS = [
-    { gege: 'img/1R.jpg', didi: 'img/1L.jpg', hint: '' },
-    { gege: 'img/2R-v3.jpg', didi: 'img/2L.jpg', hint: '' },
-    { gege: 'img/3R.jpg', didi: 'img/3L.jpg', hint: '' },
+    { gege: 'img/1R-v4.jpg', didi: 'img/1L-v4.jpg', hint: '' },
+    { gege: 'img/2R-v4.jpg', didi: 'img/2L-v4.jpg', hint: '' },
+    { gege: 'img/3R-v4.jpg', didi: 'img/3L-v4.jpg', hint: '', wide: true },  // 橫向照片：上下排
   ];
 
   const ASK = [
@@ -122,6 +132,7 @@
     done = false;
     const r = ROUNDS[i];
     r.side = Math.random() < 0.5 ? 'L' : 'R';  // 哥哥這次在哪邊
+    document.querySelector('.pair').classList.toggle('wide', !!r.wide);
     $('step').textContent = `第 ${i + 1} / ${ROUNDS.length} 題`;
     $('ask').textContent = any(ASK);
     for (const s of ['L', 'R']) {
@@ -152,6 +163,11 @@
     $('hint').textContent = r.hint ? '🔎 ' + r.hint : '';
     $('next').textContent = i + 1 < ROUNDS.length ? '下一題 →' : '看我的成績 →';
     $('next').classList.remove('hide');
+    // 上下排時按鈕可能在畫面外：等點擊手勢結束後，捲到按鈕底部露出（innerHeight 在 iPhone 會扣掉網址列）
+    setTimeout(() => {
+      const y = $('next').getBoundingClientRect().bottom + scrollY - innerHeight + 24;
+      if (y > scrollY) scrollTo(0, y);  // 直接跳，不用平滑捲動（有些瀏覽器平滑捲動會卡住）
+    }, 150);
   }
 
   function finish() {
